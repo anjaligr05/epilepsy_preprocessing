@@ -19,7 +19,7 @@ import numpy as np
 from shutil import copyfile
 import warnings
 
-def skullstrip4D(rest_in, rest_ss = '', ss_mask = '', func_dir = 'func/',
+def skullstrip4d(rest_in, rest_ss = '', ss_mask = '', func_dir = 'func/',
                  mask_kwargs = {}, **kwargs):
     """
     Create a 3D mask using nilearn masking utilities; apply the mask to motion
@@ -84,19 +84,19 @@ def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/',
     Has the ability to smooth and normalize the data. 
     
     For reference (and for what's it worth), after skull stripping, C-PAC
-    normalizes image intensity values then goes straught ahead to create mask; 
+    normalizes image intensity values then goes straight ahead to create a mask; 
     meanwhile fcon_1000's pipeline does spatial smoothing (with FWHM=6), 
-    grandmean scaling (which is the same as normalization in C-PAC), temporal
-    filtering and detrending before masking. While smoothing and grandmean 
+    grand mean scaling (which is the same as normalization in C-PAC), temporal
+    filtering and detrending before masking. While smoothing and grand mean 
     scaling are achievable, FSL's filtering and detrending are different from 
-    nilearn's. @See filtering In summary, for this part, to best reproduce
-    C-PAC's pipeline, one should use parameters:
-        { 'smooth' : None, 'normalize' : 10000 }
+    available nilearn functions. @See filtering
 
-    while to replicate f_con one could use:
+    By default we choose the C-PAC setting, 
+        { 'smooth' : None, 'normalize' : 10000 }
+    since it's newer and doesn't require smoothing or filtering. a fcon_1000's
+    setting will look like this:
         { 'smooth' : 6, 'normalize' : 10000 }
-    and deal with filtering later. By default we choose the C-PAC setting, 
-    since it's newer and does less.
+    but to really reproduce their pipeline one have to deal with filters later. 
     
     Inputs:
         rest_in: name of the functional scan. 
@@ -115,16 +115,26 @@ def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/',
     out_file = build_image_path(func_dir, rest_gms)
     
     func = nib.load(in_file)
-    
+
     # smooth
     if smooth:
+        mask = math_img('img!=0', img = func) # create a mask to preserve shape. 
+        # why? because smoothing will generate a fuzzy 'bubble' around the 
+        # brain image i.e., some of the zeros near the brain surface becomes
+        # non-zeros after gaussian filtering; so we need to remove them by
+        # applying a mask. 
+        # this mask should be the same as tge one generated in skullstrip4d,
+        # so alternatively one can load from there to save time... 
+        
         func = smooth_img(func, smooth) 
+        func = math_img('img2.astype(int)*img1', img1 = func, img2 = mask)
 
     # normalize
     if normalize:
         # normalization here means to bring the global (4D) mean of every scan
         # (of different sessions or subjects) to a constant value. Specifically, 
-        # FSL defines the global mean as the mean of all non-zero values. 
+        # FSL defines the global mean as the mean of all non-zero values. this
+        # way images with different shapes can still have the same global mean. 
         func = math_img('img*(%f)/np.mean(img[img!=0])'%normalize, img=func)        
 
     nib.save(func, out_file)
@@ -134,20 +144,20 @@ def filtering(rest_in, rest_filt = '', func_dir = 'func/',
               detrend = False, high_pass = None, low_pass = None,
               clean_kwargs = {'standardize':False, 't_r':2}, **kwargs):
     """
-    Filtering the data. Now, C-PAC has decided not to implement any of these
-    features, and FSL always have weird definition of high-pass filtering by
-    adding back DC values. Fcon_1000's pipeline took it futher by adding back
-    DC value after detrending. Futhermore, nilearn has problem with their clean
-    function, as seen here, https://github.com/nilearn/nilearn/issues/374#ref-issue-59767433,
-    which affects the quality of filtering and detrending. In general, this 
-    function probably won't work automatically and definitely won't behave like
-    FSL or fcon. 
+    Filter the data. Now, C-PAC has decided not to implement any of these
+    features, and FSL uses a non-traditional high-pass filter since the DC 
+    values are added back after it's been filtered. Same goes with fcon_1000's
+    detrending setting. On the other hand, nilearn has its own issues with their
+    filter implementations, as seen here, https://github.com/nilearn/nilearn/issues/374#ref-issue-59767433,
+    In general, this function can apply filter and detrend, but the result may
+    be very different from fcon_1000's, and the quality isn't always guaranteed
+    either. One should always check the output data before using them. 
     
     Inputs: 
         rest_in, rest_filt, func_dir: str. file names and directories
         detrend: bool. whether to detrend the data
-        high_pass: float or None 
-        low_pass: float or None
+        high_pass: float or None. in Hz
+        low_pass: float or None. in Hz
         clean_kwargs: extra keywords to nilean.image.clean_img
         
     Return: name of the filtered image
@@ -285,7 +295,11 @@ if __name__ == '__main__':
 #    masking(smoothing_scaling(skullstrip4D(motion_correction('rest'))))
     
 #    motion_correction('rest','rest_mc_3',mc_alg='pypreprocess_realign',mean_reference=False)
-    masking(smoothing_scaling(skullstrip4D('rest_mc_3')))
-    from nilearn.plotting import plot_epi, plot_img
-    plot_img('func/rest_mc_3_ss_mask.nii.gz',cut_coords=(-11,8,25))
-    plot_epi('func/rest_mc_3_ss_gms.nii.gz',cut_coords=(-11,8,25))
+#    masking(smoothing_scaling(skullstrip4D('rest_mc_2'),smooth=6))
+    smoothing_scaling('rest_mc_2_ss',smooth=6)
+    from nilearn.plotting import plot_stat_map, plot_epi
+    diff = math_img('np.mean(a,axis=-1)-np.mean(b,axis=-1)', a='func/rest_mc_2_ss_gms.nii.gz',b='sample/rest_gms.nii.gz')
+    plot_epi(mean_img('func/rest_mc_2_ss_gms.nii.gz'),cut_coords=(-3,18,10))
+    plot_epi(mean_img('sample/rest_gms.nii.gz'),cut_coords=(-3,18,10))
+    plot_stat_map(diff,cut_coords=(-3,18,10))
+    
