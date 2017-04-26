@@ -14,12 +14,12 @@ import os.path
 class BrainImageFileNotFoundError(Exception):
     pass
 
-def brain_image_path(filedir, filename, fileext = '.nii.gz', verify=True):
+def build_image_path(filedir, filename, fileext = '.nii.gz', check_exist=False):
     
     if filedir and filedir[-1] != '/':
         filedir = filedir + '/'
     path = filedir + filename + fileext
-    if not verify or os.path.isfile(path):
+    if not check_exist or os.path.isfile(path):
         return path
     else:
         raise BrainImageFileNotFoundError('path: '+path)
