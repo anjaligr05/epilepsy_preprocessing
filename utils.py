@@ -10,9 +10,27 @@ some utility functions... need some organization
 import numpy as np
 from nipy.core.api import Image
 import os.path
+import re
 
 class BrainImageFileNotFoundError(Exception):
     pass
+
+def build_input_path(name_in, folder):
+    return build_image_path(folder, name_in, check_exist=True)
+
+def build_output_path(name_in, name_out, folder, name_ext='out', name_conv='replace'):
+    name_in = re.sub('\_+\Z','',name_in)
+    name_ext = re.sub('\A\_+','',name_ext)
+    
+    if not name_out:
+        if name_conv == 'replace':
+            name_in = name_in.split('_')[0] # remove extras, then accumulate
+        elif name_conv != 'accumulate':
+            raise ValueError("expect one of the two naming convensions: ['replace','accumulate'], received: %s"%name_conv)
+        name_out = name_in + '_' + name_ext
+    out_file = build_image_path(folder, name_out)
+    return name_out, out_file
+        
 
 def build_image_path(filedir, filename, fileext = '.nii.gz', check_exist=False):
     
