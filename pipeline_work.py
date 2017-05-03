@@ -1,3 +1,12 @@
+"""
+Usage: 
+python pipeline_anjali_work.py -f SUB_190011/func/rest.nii
+      -t template_MNI152_2mm.nii.gz --TR 2 -s SUB_190011
+      --subjects_dir fsdata --slice_times 0 17 1 18 2 19 3 20 4 21 5 22 6 23
+      7 24 8 25 9 26 10 27 11 28 12 29 13 30 14 31 15 32 16 -o .
+This workflow takes resting timeseries and a Nifti file corresponding
+to it and preprocesses it to produce timeseries coordinates or grayordinates.
+"""
 from __future__ import division, unicode_literals
 from builtins import open, range, str
 
