@@ -16,7 +16,7 @@ class BrainImageFileNotFoundError(Exception):
     pass
 
 def build_input_path(name_in, folder):
-    return build_image_path(folder, name_in, check_exist=True)
+    return build_image_path(name_in, folder, check_exist=True)
 
 def build_output_path(name_in, name_out, folder, name_ext='out', name_conv='replace'):
     name_in = re.sub('\_+\Z','',name_in)
@@ -28,11 +28,11 @@ def build_output_path(name_in, name_out, folder, name_ext='out', name_conv='repl
         elif name_conv != 'accumulate':
             raise ValueError("expect one of the two naming convensions: ['replace','accumulate'], received: %s"%name_conv)
         name_out = name_in + '_' + name_ext
-    out_file = build_image_path(folder, name_out)
+    out_file = build_image_path(name_out, folder)
     return name_out, out_file
         
 
-def build_image_path(filedir, filename, fileext = '.nii.gz', check_exist=False):
+def build_image_path(filename, filedir, fileext = '.nii.gz', check_exist=False):
     
     if filedir and filedir[-1] != '/':
         filedir = filedir + '/'
@@ -41,7 +41,12 @@ def build_image_path(filedir, filename, fileext = '.nii.gz', check_exist=False):
         return path
     else:
         raise BrainImageFileNotFoundError('path: '+path)
-    
+
+#def get_extra_kwargs(func, kwargs):
+#    if func.func_name not in kwargs.keys():
+#        return {})
+#    return kwargs[func.func_name]
+
 def flip_x_axis(img_obj, cmap=None, meta=None):
     """
     flip the x-axis of image data    
