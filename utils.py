@@ -47,6 +47,26 @@ def build_image_path(filename, filedir, fileext = '.nii.gz', check_exist=False):
 #        return {})
 #    return kwargs[func.func_name]
 
+class AllFeatures:
+    
+    def __init__(self, func, param_dict):
+        self.func = func
+        self.func_name = func.__name__
+        if self.func_name in param_dict and type(param_dict[self.func_name]) is dict:
+            self.param = param_dict[self.func_name]
+        else:
+            self.param = {}
+    
+    def run(self, *args, **kwargs):
+        if not self.param:
+            print 'no extra parameter selected'
+            print 'run: %s(%s **%s)'%(self.func_name, str(args)[1:-1], kwargs)
+            return self.func(*args, **kwargs)
+        else:
+            print 'extra parameter selected'
+            print 'run: %s(%s **%s)'%(self.func_name, str(args)[1:-1], self.param)
+            return self.func(*args, **self.param)
+
 def flip_x_axis(img_obj, cmap=None, meta=None):
     """
     flip the x-axis of image data    

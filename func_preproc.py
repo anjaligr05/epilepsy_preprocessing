@@ -5,9 +5,15 @@ Created on Thu Apr 13 17:58:46 2017
 @author: chenym
 """
 
+# Python built-ins
 import warnings
-from utils import build_input_path, build_output_path
 from shutil import copyfile
+
+# customs
+from utils import build_input_path, build_output_path, BrainImageFileNotFoundError
+
+# I/O, nilearn, pypreprocess and nipy all depend on nibabel
+import nibabel as nib
 
 # sklearn package
 try:
@@ -36,42 +42,64 @@ try:
     from nilearn.image import mean_img, smooth_img, clean_img, math_img
     from nilearn.masking import compute_epi_mask
     from nilearn.plotting import plot_roi
-    import nibabel as nib
 except ImportError:
     warnings.warn("can't import nilearn. most functions are dependent on these packages, except motion_correction with options 'nipy_spacetimerealign' and 'nipy_spacerealign'")
 
-NAME_CONV = 'replace'
+######################
+# predefined runners #
+######################
 
-def skullstrip4d(rest_in, rest_ss = '', ss_mask = '', func_dir = 'func/',
-                 mask_kwargs = {}, **kwargs):
+def run_default_cpac_functional_pipeline(rest):
+    try:
+        build_input_path(rest, 'func')
+    except BrainImageFileNotFoundError:
+        raise BrainImageFileNotFoundError("can't find input file func/%s.gii.gz. this function by default loads images from func/ folder, so make sure the folder is created and the functional image is in there. "%rest)
+    
+    return masking(smoothing_scaling(skullstrip4d(motion_correction(motion_correction(rest)))))
+    
+def run_configured_functional_pipeline(rest, func_dir, options):
+    pass
+
+#######################################
+# functions for each individual steps #
+#######################################
+
+def skullstrip4d(name_in, func_dir = 'func/',
+                 name_out = '', mask_name_out = '',
+                 postfix = 'ss', mask_postfix = 'mask', name_conv = 'replace',
+                 compute_epi_mask_kwargs = {}, **kwargs):
     """
     Create a 3D mask using nilearn masking utilities; apply the mask to motion
     corrected 4D functional images using numpy. Can pass extra parameters to
-    nilearn.masking.compute_epi_mask by customizing mask_kwargs. 
+    nilearn.masking.compute_epi_mask by customizing compute_epi_mask_kwargs. 
     
     inputs:
-        rest_mc: the name of the motion corrected file. 
-        rest_ss: the name of the skull stripped file. 
+        name_in: str. name of nii.gz file without extension. 
+        name_out: the name of the output. can be unspecified (blank).
+        mask_name_out: name for the mask file.
+        postfix: add after name_in to build name_out, if name_out is unspecified. 
+        mask_postfix: for unspecified mask_name_out. 
         func_dir: directory for functional images. 
-        mask_kwargs: extra keyword arguments passed to nilearn.masking.compute_epi_mask
+        compute_epi_mask_kwargs: extra keyword arguments passed to 
+                                 nilearn.masking.compute_epi_mask. 
         
     Return: the name of the skull stripped image
     """
     
-    in_file = build_input_path(rest_in, func_dir)
-    rest_ss, out_file = build_output_path(rest_in, rest_ss, func_dir, name_ext='ss', name_conv=NAME_CONV)
-    ss_mask, mask_out_file = build_output_path(rest_in, ss_mask, func_dir, name_ext='mask', name_conv=NAME_CONV)    
+    in_file = build_input_path(name_in, func_dir)
+    name_out, out_file = build_output_path(name_in, name_out, func_dir, postfix, name_conv)
+    name_out_mask, mask_out_file = build_output_path(name_in, mask_name_out, func_dir, mask_postfix, name_conv)    
     
-    func = nib.load(in_file)    
+    func = nib.load(in_file)
     
     print 'start skull stripping... input: %s' % in_file    
 
-    mask = compute_epi_mask(func, **mask_kwargs)
+    mask = compute_epi_mask(func, **compute_epi_mask_kwargs)
     
-    print "skull strip complete. check the plot to see if it's good! (if not, adjust parameters using mask_kwargs)"    
+    print "skull strip complete. check the plot to see if it's good! (if not, adjust parameters using compute_epi_mask_kwargs)"    
     
     # display mask
-    plot_roi(mask, mean_img(func),title='mask for %s'%rest_in)
+    plot_roi(mask, mean_img(func),title='mask for %s'%name_in)
     
     func = math_img('a[...,np.newaxis]*b', a = mask, b = func) # numpy broadcast
     
@@ -79,22 +107,24 @@ def skullstrip4d(rest_in, rest_ss = '', ss_mask = '', func_dir = 'func/',
     nib.save(func, out_file) 
     print 'mask and the skull stripped images are save to %s and %s, respectively. ' % (out_file, mask_out_file)
     
-    return rest_ss
+    return name_out
 
-def masking(rest_in, rest_pp_mask = '', func_dir = 'func/', **kwargs):
+def masking(name_in, func_dir = 'func/', name_out = '', postfix = 'pp_mask', 
+            name_conv = 'replace', **kwargs):
     """
     Create a binary mask for the 4D functional scan, based on the min values
     along t-axis. 
     
     Inputs:
-        rest_in: name of the functional scan
-        rest_pp_mask: name of the mask
+        name_in: str. name of nii.gz file without extension. 
+        name_out: name of the mask. can be unspecified. 
+        postfix: add after name_in to build name_out, if name_out is unspecified.  
         func_dir: path to the directory that functional images will be stored. 
         
     Return: name of the mask
     """
-    in_file = build_input_path(rest_in, func_dir)
-    rest_pp_mask, out_file = build_output_path(rest_in, rest_pp_mask, func_dir, name_ext='pp_mask', name_conv=NAME_CONV)
+    in_file = build_input_path(name_in, func_dir)
+    name_out, out_file = build_output_path(name_in, name_out, func_dir, postfix, name_conv)
     
     func = nib.load(in_file)
     
@@ -104,10 +134,12 @@ def masking(rest_in, rest_pp_mask = '', func_dir = 'func/', **kwargs):
     nib.save(mask, out_file)    
     print "mask saved: %s" % out_file
     
-    return rest_pp_mask
+    return name_out
 
-def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/', 
-                      smooth = None, normalize = 10000, **kwargs):
+def smoothing_scaling(name_in, func_dir = 'func/',
+                      name_out = '', postfix = 'gms', 
+                      smooth = None, normalize = 10000,
+                      name_conv = 'replace', **kwargs):
     """
     Has the ability to smooth and normalize the data. 
     
@@ -127,8 +159,9 @@ def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/',
     but to really reproduce their pipeline one have to deal with filters later. 
     
     Inputs:
-        rest_in: name of the functional scan. 
-        rest_gms: name of the grand-mean-scaled functional scan
+        name_in: str. name of nii.gz file without extension. 
+        name_out: name of the grand-mean-scaled functional scan
+        postfix: add after name_in to build name_out, if name_out is unspecified.
         func_dir: the directory dedicated to functional files. 
         smooth: smooth parameter. Can be scalar, numpy.ndarray, 'fast' or None
         normalize: a number to multiply after dividing the 4D global mean. 
@@ -136,8 +169,8 @@ def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/',
     Return: name of the smoothed, grandmean scaled image
     """
     
-    in_file = build_input_path(rest_in, func_dir)
-    rest_gms, out_file = build_output_path(rest_in, rest_gms, func_dir, name_ext = 'gms', name_conv=NAME_CONV)
+    in_file = build_input_path(name_in, func_dir)
+    name_out, out_file = build_output_path(name_in, name_out, func_dir, postfix, name_conv)
     
     func = nib.load(in_file)
 
@@ -146,14 +179,14 @@ def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/',
         print "start smoothing the image, input: %s" % in_file
         
         mask = math_img('img!=0', img = func) # create a mask to preserve shape. 
-        # why? because smoothing will generate a fuzzy 'bubble' around the 
+        # why? because smoothing will generate a fuzzy outline around the 
         # brain image i.e., some of the zeros near the brain surface will be
         # non-zeros after gaussian filtering; so we need to remove them by
         # applying this mask. 
         # this mask should be the same as the one generated in skullstrip4d,
-        # so alternatively one can load that file to save time...       
+        # so alternatively one can load that file...       
         
-        func = smooth_img(func, smooth) 
+        func = smooth_img(func, smooth)
         func = math_img('img2.astype(int)*img1', img1 = func, img2 = mask)
 
     # normalize
@@ -169,23 +202,25 @@ def smoothing_scaling(rest_in, rest_gms = '', func_dir = 'func/',
 
     nib.save(func, out_file)
     print "grand mean scaled (and/or smoothed) image is saved: %s" % out_file
-    return rest_gms
+    return name_out
 
-def filtering(rest_in, rest_filt = '', func_dir = 'func/', 
+def filtering(name_in, func_dir = 'func/', name_out = '', postfix = 'pp',
               detrend = False, high_pass = None, low_pass = None,
-              clean_kwargs = {'standardize':False, 't_r':2}, **kwargs):
+              clean_kwargs = {'standardize':False, 't_r':2}, name_conv = 'replace', **kwargs):
     """
-    Filter the data. Now, C-PAC has decided not to implement any of these
-    features, and FSL uses a non-traditional high-pass filter since the DC 
-    values are added back after it's been filtered. Same goes with fcon_1000's
-    detrending setting. On the other hand, nilearn has its own issues with their
-    filter implementations, as seen here, https://github.com/nilearn/nilearn/issues/374#ref-issue-59767433,
-    In general, this function can apply filter and detrend, but the result may
-    be very different from fcon_1000's, and the quality isn't always guaranteed
-    either. One should always check the output data before using them. 
+    Automatically filter and detrend the data.
+    
+    Now, C-PAC has decided not to implement any of these features, and what
+    fcon_1000 does is not traditional filtering (the DC values are always added
+    back after high-pass filtering and detrending), making this function less
+    crucial. Moreover, nilearn has its own issues, as seen here: https://github.com/nilearn/nilearn/issues/374#ref-issue-59767433,
+    which means the result of this function can be fundamentally different from
+    fcon_1000's, and the filter quality is inconsistent. As a result, one should
+    always check the results before using them, or apply filters carefully and
+    specially designed using other softwares. 
     
     Inputs: 
-        rest_in, rest_filt, func_dir: str. file names and directories
+        name_in, name_out, func_dir: str. file names and directories
         detrend: bool. whether to detrend the data
         high_pass: float or None. in Hz
         low_pass: float or None. in Hz
@@ -194,8 +229,8 @@ def filtering(rest_in, rest_filt = '', func_dir = 'func/',
     Return: name of the filtered image
     """
     
-    in_file = build_input_path(rest_in, func_dir)
-    rest_filt, out_file = build_output_path(rest_in, rest_filt, func_dir, name_ext = 'pp', name_conv=NAME_CONV)
+    in_file = build_input_path(name_in, func_dir)
+    name_out, out_file = build_output_path(name_in, name_out, func_dir, postfix, name_conv)
     
     func = nib.load(in_file)
     # band-pass filter, detrend
@@ -208,27 +243,28 @@ def filtering(rest_in, rest_filt = '', func_dir = 'func/',
         func = clean_img(func, detrend=dt, low_pass=lp, high_pass=hp, **clean_kwargs)
 
     nib.save(func, out_file)
-    return rest_filt
+    return name_out
 
-def motion_correction(rest_in, rest_mc = '', func_dir = 'func/', 
-                      mc_alg = 'pypreprocess_realign', mean_reference = True,
-                      mc_kwargs = {}, **kwargs):
+def motion_correction(name_in, func_dir = 'func/', name_out = '', postfix = 'mc',
+                      mc_alg = 'pypreprocess_realign', force_mean_reference = False,
+                      mc_kwargs = {}, name_conv = 'replace', **kwargs):
     """
     Motion correction function. Offers 3 motion correction algorithms from 
     2 packages: SpaceRealign and SpaceTimeRealign from NiPy, realign from
     pypreprocess. All three algorithms are purely Python. 
     
     inputs:
-        rest_in: name of the resting state fMRI image. No extension. 
-        rest_mc: name of the motion corrected resting state fMRI image. No extension.
-        func_dir: the path to the directory where <rest_in>.nii.gz can be found. 
+        name_in: name of the resting state fMRI image. No extension. 
+        name_out: name of the motion corrected resting state fMRI image. No extension.
+        postfix: if name_out is False, use postfix to build name_out. 
+        func_dir: the path to the directory where <name_in>.nii.gz can be found. 
                   Also the directory <rest_mc>.nii.gz will be saved. 
         mc_alg: keyword for algorithm choice. Options: 
                 ['nipy_spacerealign', 
                  'nipy_spacetimerealign', 
                  'pypreprocess_realign']
-        mean_reference: whether the motion correction should be referred to 
-                        the first volume (t = 0), or the mean of all volumes. 
+        force_mean_reference: whether the motion correction should be aligned
+                              with the first volume or the mean of all volumes. 
         mc_kwargs: extra kwargs to pass to motion correction algorithms
         
     return: 
@@ -237,8 +273,8 @@ def motion_correction(rest_in, rest_mc = '', func_dir = 'func/',
 
     nipyalgs = ['nipy_spacerealign', 'nipy_spacetimerealign']
     pypreprocessalgs = ['pypreprocess_realign']
-    in_file = build_input_path(rest_in, func_dir)
-    rest_mc, out_file = build_output_path(rest_in, rest_mc, func_dir, name_ext = 'mc', name_conv=NAME_CONV)
+    in_file = build_input_path(name_in, func_dir)
+    name_out, out_file = build_output_path(name_in, name_out, func_dir, postfix, name_conv)
     
     print 'start motion correction process'
     if mc_alg in nipyalgs:
@@ -246,13 +282,13 @@ def motion_correction(rest_in, rest_mc = '', func_dir = 'func/',
         motion_correction_nipy(in_file, out_file, mc_alg, mc_kwargs)
     elif mc_alg in pypreprocessalgs:
         print "using pypreprocess' algorithm"
-        motion_correction_pypreprocess(in_file, out_file, rest_mc, func_dir, mean_reference, mc_kwargs)
+        motion_correction_pypreprocess(in_file, out_file, name_out, func_dir, force_mean_reference, mc_kwargs)
     else:
         raise ValueError('option %s is not recognizable. '%mc_alg)
 
-    return rest_mc
+    return name_out
 
-def motion_correction_pypreprocess(in_file, out_file, rest_mc, func_dir, mean_reference, mc_kwargs):
+def motion_correction_pypreprocess(in_file, out_file, rest_mc, func_dir, force_mean_reference, mc_kwargs):
     """
     an attempt at motion correction using pypreprocess package. 
     
@@ -261,14 +297,14 @@ def motion_correction_pypreprocess(in_file, out_file, rest_mc, func_dir, mean_re
         out_file: path to the future output file
         rest_mc: name of the future output file
         func_dir: directory of the future output file
-        mean_reference: if evaluated True, adjust motion according to the 
+        force_mean_reference: if evaluated True, adjust motion according to the 
                         mean image; otherwise adjust to the first volume. 
         mc_kwargs: extra parameters
     """
     # load using nibabel
     func = nib.load(in_file)
     
-    if mean_reference: # calculate the mean and insert to the front
+    if force_mean_reference: # calculate the mean and insert to the front
         func = math_img('np.insert(img, 0, np.mean(img, axis=-1), axis=3)', img = func)
 #        func_mean = mean_img(func)
 #        inserted_data = np.insert(func.get_data(), 0, func_mean.get_data(), axis=3)
@@ -284,20 +320,15 @@ def motion_correction_pypreprocess(in_file, out_file, rest_mc, func_dir, mean_re
     else:
         mrimc = mrimc.fit(func)
     
-#    if mean_reference:
+#    if force_mean_reference:
 #        mrimc.vols_[0].pop(0)
 
     # write realigned files to disk
-    result = mrimc.transform(func_dir, prefix = rest_mc, ext='.nii.gz', concat=True)
-    saved_file = result['realigned_images'][0]
-    if mean_reference: # remove the first frame, which was the mean
-        saved_img = nib.load(saved_file)
-        final_img = math_img('img[...,1:]', img = saved_img)
-#        final_img = nib.Nifti1Image(saved_img.get_data()[...,1:], saved_img.affine)
-        nib.save(final_img, out_file)
-    else: # need to rename the file
-        copyfile(saved_file, out_file)
-    
+    result = mrimc.transform(concat=True)['realigned_images'][0]
+    if force_mean_reference: # remove the first frame, which was the mean
+        result = math_img('img[...,1:]', img = result)
+
+    nib.save(result, out_file)
     
 
 def motion_correction_nipy(in_file, out_file, mc_alg, mc_kwargs):
