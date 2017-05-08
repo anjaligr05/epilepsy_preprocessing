@@ -1,6 +1,6 @@
 """
 Usage: 
-python pipeline__work.py -f SUB_190011/func/rest.nii
+python pipeline_ext.py -f SUB_190011/func/rest.nii
       -t template_MNI152_2mm.nii.gz --TR 2 -s SUB_190011
       --subjects_dir fsdata --slice_times 0 17 1 18 2 19 3 20 4 21 5 22 6 23
       7 24 8 25 9 26 10 27 11 28 12 29 13 30 14 31 15 32 16 -o .
@@ -91,6 +91,22 @@ def anat_preproc(filename):
 output args: returns a 3d nifti file'''
 def avg_median(filename_in):
 	from nilearn.image import load_img
+	import numpy as np
+    	import nibabel as nb
+    	from nipype.utils import NUMPY_MMAP
+    	average = None
+    	for idx, filename in enumerate(filename_to_list(filename_in)):
+        	img = nb.load(filename, mmap=NUMPY_MMAP)
+        	data = np.median(img.get_data(), axis=3)
+        	if average is None:
+            		average = data
+        	else:
+            		average = average + data
+    	median_img = nb.Nifti1Image(average / float(idx + 1), img.affine,
+                                img.header)
+    	filename = os.path.join(os.getcwd(), 'median.nii.gz')
+    	median_img.to_filename(filename)
+	return filename	
 def create_reg_workflow(name='registration'):
     """Create a FEAT preprocessing workflow together with freesurfer
     Parameters
