@@ -5,13 +5,13 @@ preprocessing pipelines, like fcon_1000 and C-PAC, would process their data.
 The preprocessing usually consists of anatomical preprocessing, functional 
 preprocessing, registration, segmentation and nuisance signal removal. 
 
-This project has two sub-projects. "pipeline_anjali" utilizes nipype's pipeline
+This project has two sub-projects. "pipeline_ext" utilizes nipype's pipeline
 engine and constructs a more complete workflow; "pure_python" is less complete, 
 but only depends on pure python packages like nilearn, nipy and pypreprocess. 
 
-## "pipeline_anjali"
+## "pipeline_ext"
 
-some intro
+This pipeline depends on  
 
 ### system requirements
 
@@ -20,6 +20,10 @@ system requirements and how to install dependencies
 ### usage
 
 how to use
+python pipeline_ext.py -f 109001/func/rest.nii
+      -t template_in_MNI152_2mm.nii.gz --TR 2 -s 109001
+      --subjects_dir fsdata --slice_times 0 17 1 18 2 19 3 20 4 21 5 22 6 23
+      7 24 8 25 9 26 10 27 11 28 12 29 13 30 14 31 15 32 16 -o .
 
 
 ## "pure_python"
