@@ -1,0 +1,6 @@
+{
+	"rest_name": "rest",
+	"func_dir": "func",
+	"force_mean_reference": true,
+	"extra_params": {}
+}

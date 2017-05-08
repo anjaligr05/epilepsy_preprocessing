@@ -1,0 +1,7 @@
+{
+	"anat_name": "highres",
+	"func_name": "example_func",
+	"mni_name": "standard",
+	"reg_dir": "reg",
+	"template": "templates/standard.nii.gz"
+}
