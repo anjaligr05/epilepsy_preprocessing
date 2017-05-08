@@ -8,8 +8,7 @@ some registration and co-registration
 """
 
 import warnings
-from utils import build_input_path, build_image_path
-from utils import AllFeatures
+from utils import AllFeatures, build_image_path
 import numpy as np
 import nibabel as nib
 
@@ -63,8 +62,13 @@ def get_registration_function(registration_to_use):
     
     return registration_options[registration_to_use]
 
-def _concat_transforms(T1, T2, registration_to_use):
-    # use this to avoid the conversion between affine matrices and (translation, rotation) vectors    
+def concat_transforms(T1, T2, registration_to_use):
+    """
+    use this to avoid the conversion between affine matrices and
+    (translation, rotation) vectors. 
+    
+    T1.dot(T2) for matrix (nipy) and T1 + T2 for vectors (pypreprocess)
+    """   
     
     if registration_to_use == 'nipy':
         return T2.as_affine().dot(T1.as_affine())
@@ -108,6 +112,7 @@ def affine_registration_nipy(in_path, ref_path, out_path,
         
 #        T = R.optimize('affine', optimizer='powell')
         T = AllFeatures(R.optimize,extra_params).run('affine', optimizer='powell')
+        print('receive affine transformation %s' % T)
 
     else:
         if type(T) is not Affine:
