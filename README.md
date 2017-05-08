@@ -13,11 +13,11 @@ but only depends on pure python packages like nilearn, nipy and pypreprocess.
 
 some intro
 
-###system requirements
+### system requirements
 
 system requirements and how to install dependencies
 
-###usage###
+### usage
 
 how to use
 
@@ -26,10 +26,10 @@ how to use
 
 some intro
 
-###system requirements
+### system requirements
 
 system requirements and how to install dependencies
 
-###usage###
+### usage
 
 how to use
