@@ -32,60 +32,7 @@ try:
 except ImportError:
     warnings.warn("pypreprocess modules are not available.")
 
-def registration(anat, func, mni, reg_dir = 'reg', 
-                 registration_to_use = 'nipy', _nb = '2', extra_params = {}):
-    """
-    registration workflow. will register func to anat, then anat to stanard,
-    and finally func to standard. 
-    
-    inputs:
-        anat, func, mni: name of the 3D scans, not extension. 
-        reg_dir: directory
-        registration_to_use: can choose from ['nipy', 'pypreprocess']
-            will raise error if the package of interest can't be imported
-            'pypreprocess' does not resample the source image into registered 
-            space by default. in order to override that, one has to pass
-            force_resample=True through extra_params, and the image still won't
-            be scaled in the end. so use with caution. 
-        _nb: str to combine source and target name. e.g. highres<2>standard
-        extra_params: extra parameters to pass to functions. 
-            format: extra_params = {'func_name':{'param_keyword':'value'}}
-            e.g. extra_params = {'optimize':{'optimizer':'steepest'}} will 
-            override the default optimizer for the optimize function. This works
-            on classes too, e.g. extra_params =
-            {'HistogramRegistration': {'smooth':6}} is equivalent to
-            HistogramRegistration(smooth=6)
-            positional arguments will be preserved and keyword arguments will be
-            override. TypeError will raise if extra parameters did not fit.              
-    """
-    # choose which registration algorithm from which package to use    
-    affine_registration = _choose_registration_function(registration_to_use)
-    
-    # construct paths to anat, func, mni file
-    anat_path = build_input_path(anat, reg_dir)
-    func_path = build_input_path(func, reg_dir)
-    mni_path = build_input_path(mni, reg_dir)
-    
-    # construct paths to futher outputs
-    op_1 = build_output_path(func, anat, reg_dir, _nb)
-    op_2 = build_output_path(anat, mni, reg_dir, _nb)
-    op_3 = build_output_path(func, mni, reg_dir, _nb)
-    
-    # first register from functional space to anatomical (highres) space
-    T1 = affine_registration(func_path, anat_path, op_1[0], op_1[1], op_1[2], 
-                             **extra_params)
-    
-    # then register from anatomical (highres) space to mni (standard) space
-    T2 = affine_registration(anat_path, mni_path, op_2[0], op_2[1], op_2[2], 
-                             **extra_params)
-                             
-    # then register from functional space to mni (standard) space by directly
-    # applying a transformation matrix
-    T3 = _concat_transforms(T1, T2, registration_to_use)
-    T3 = affine_registration(func_path, mni_path, op_3[0], op_3[1], op_3[2], 
-                             T = T3, **extra_params)
-
-def build_output_path(name_in, name_ref, reg_dir, name_conn):
+def build_reg_output_path(name_in, name_ref, reg_dir, name_conn):
     """
     build the paths to 3 output files for each registration process. 
     
@@ -103,7 +50,7 @@ def build_output_path(name_in, name_ref, reg_dir, name_conn):
     
     return ls
 
-def _choose_registration_function(registration_to_use):
+def get_registration_function(registration_to_use):
     
     registration_options = {'nipy':affine_registration_nipy,
                             'pypreprocess':affine_registration_pypreprocess}
@@ -129,7 +76,7 @@ def _concat_transforms(T1, T2, registration_to_use):
 
 def affine_registration_nipy(in_path, ref_path, out_path, 
                              in_ref_mat = '', ref_in_mat = '',
-                             T = None, **extra_params):
+                             T = None, extra_params={}):
     """
     Affine registation and resampling. Use Histogram registration from nipy. 
     
@@ -160,7 +107,7 @@ def affine_registration_nipy(in_path, ref_path, out_path,
         R = AllFeatures(HistogramRegistration,extra_params).run(source_image, target_image)
         
 #        T = R.optimize('affine', optimizer='powell')
-        AllFeatures(R.optimize,extra_params).run('affine', optimizer='powell')
+        T = AllFeatures(R.optimize,extra_params).run('affine', optimizer='powell')
 
     else:
         if type(T) is not Affine:
@@ -183,7 +130,8 @@ def affine_registration_nipy(in_path, ref_path, out_path,
 
 def affine_registration_pypreprocess(in_path, ref_path, out_path, 
                                      in_ref_mat = '', ref_in_mat = '',
-                                     T = None, force_resample = False, **extra_params):
+                                     T = None, force_resample = False,
+                                     extra_params={}):
     """
     Affine registation and resampling. Use Coregister from pypreprocess. 
     

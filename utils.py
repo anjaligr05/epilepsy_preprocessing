@@ -59,13 +59,20 @@ class AllFeatures:
     
     def run(self, *args, **kwargs):
         if not self.param:
-            print 'no extra parameter selected'
-            print 'run: %s(%s **%s)'%(self.func_name, str(args)[1:-1], kwargs)
-            return self.func(*args, **kwargs)
+            print 'no extra parameter selected for %s' % self.func_name
+            param = kwargs
         else:
-            print 'extra parameter selected'
-            print 'run: %s(%s **%s)'%(self.func_name, str(args)[1:-1], self.param)
-            return self.func(*args, **self.param)
+            print 'extra parameter selected for %s' % self.func_name
+            param = self.param
+        print 'run: %s(%s **%s)'%(
+        self.func_name, self._trimstr(str(args)[1:-1]), self._trimstr(param))
+        return self.func(*args, **kwargs)
+    
+    def _trimstr(self, obj):
+        obj_str = str(obj)
+        if len(obj_str) > 50:
+            return obj_str[:50] + ' ...'
+        return obj_str
 
 def flip_x_axis(img_obj, cmap=None, meta=None):
     """
