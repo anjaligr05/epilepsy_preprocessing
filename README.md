@@ -11,15 +11,15 @@ but only depends on pure python packages like nilearn, nipy and pypreprocess.
 
 ## "pipeline_ext"
 
-This pipeline depends on  
+This pipeline depends on external packages like fsl, afni, ants etc through nipype.  
 
 ### system requirements
 
-system requirements and how to install dependencies
+pipeline_ext uses nilearn and nipype. Nipype provides an environment that encourages interactive exploration of algorithms from different packages. This eases the design. The packages indirectly referenced here through nipype are ants, fsl, afni, spm.
 
 ### usage
 
-how to use
+run as following
 python pipeline_ext.py -f 109001/func/rest.nii
       -t template_in_MNI152_2mm.nii.gz --TR 2 -s 109001
       --subjects_dir fsdata --slice_times 0 17 1 18 2 19 3 20 4 21 5 22 6 23
