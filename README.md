@@ -52,14 +52,15 @@ python pipeline_pure_python.py data_folder
 to run with default file locations and settings. To use a more advanced
 setting, one can add optional arguments `-sl --subject_list` to point
 to the *"file listing all subjects"* (default *subject_list.txt*),
-and `fc --func_preproc_config` and `-rc --registration_config` to
+and `ac --anat_preproc_config`, `fc --func_preproc_config` and
+`-rc --registration_config` to
 provide path to configuration files written as JSON objects. The main
 function will read these configurations and pass the paramters to
 function runners. 
 
 ### more documentation
 
-check [__here__](http://github.com/anjaligr05/epilepsy_preprocessing/blob/master/README.md)
+check [__here__](https://github.com/anjaligr05/epilepsy_preprocessing/tree/master/doc/pure_python)
 for detailed workflows, docstrings, and more user guides on topics 
 like how to create configuration files, how to create a naming convension, 
 how to use parameters and extra paramters, etc. 
