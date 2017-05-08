@@ -1,0 +1,176 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module func_preproc</title>
+<meta charset="utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>func_preproc</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:///C:/users/chenym/documents/dr/epilepsy_preprocessing/func_preproc.py">c:\users\chenym\documents\dr\epilepsy_preprocessing\func_preproc.py</a></font></td></tr></table>
+    <p><tt>Created&nbsp;on&nbsp;Thu&nbsp;Apr&nbsp;13&nbsp;17:58:46&nbsp;2017<br>
+&nbsp;<br>
+@author:&nbsp;chenym<br>
+&nbsp;<br>
+This&nbsp;file&nbsp;contains&nbsp;several&nbsp;functions&nbsp;that&nbsp;can&nbsp;be&nbsp;used&nbsp;to&nbsp;preprocess&nbsp;a&nbsp;functional<br>
+image.&nbsp;They&nbsp;are:&nbsp;<br>
+<a href="#-motion_correction">motion_correction</a>(...),&nbsp;<a href="#-motion_correction_nipy">motion_correction_nipy</a>(...),&nbsp;and&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;--see&nbsp;note&nbsp;1.<br>
+<a href="#-motion_correction_pypreprocess">motion_correction_pypreprocess</a>(...)&nbsp;for&nbsp;motion&nbsp;correction,&nbsp;<a href="#-skullstrip4d">skullstrip4d</a>(...)<br>
+for&nbsp;skull&nbsp;stripping,&nbsp;<a href="#-smoothing_scaling">smoothing_scaling</a>(...)&nbsp;for&nbsp;some&nbsp;spatial&nbsp;processing,<br>
+<a href="#-filtering">filtering</a>(...)&nbsp;for&nbsp;temporal&nbsp;processing,&nbsp;and&nbsp;finally&nbsp;<a href="#-masking">masking</a>(...)&nbsp;for&nbsp;creating<br>
+a&nbsp;binary&nbsp;mask.&nbsp;The&nbsp;goal&nbsp;of&nbsp;this&nbsp;project&nbsp;is&nbsp;to&nbsp;reproduce&nbsp;fcon_1000&nbsp;and&nbsp;C-PAC's<br>
+preprocessing&nbsp;pipeline&nbsp;without&nbsp;having&nbsp;their&nbsp;FSL&nbsp;and&nbsp;AFNI&nbsp;dependencies;&nbsp;thus&nbsp;the&nbsp;<br>
+goal&nbsp;of&nbsp;these&nbsp;functions&nbsp;is&nbsp;to&nbsp;"echo"&nbsp;AFNI&nbsp;and&nbsp;FSL&nbsp;functions&nbsp;used&nbsp;in&nbsp;functional<br>
+preprocessing&nbsp;while&nbsp;utilizing&nbsp;open-source&nbsp;python&nbsp;packages&nbsp;such&nbsp;as&nbsp;nilearn,&nbsp;nipy<br>
+and&nbsp;pypreprocess.&nbsp;Below&nbsp;is&nbsp;a&nbsp;comparison&nbsp;between&nbsp;these&nbsp;functions&nbsp;and&nbsp;ANFI/FSL<br>
+equivalents.&nbsp;<br>
+&nbsp;<br>
+motion_correction&nbsp;--&gt;&nbsp;3dvolreg<br>
+skullstrip4d&nbsp;--&gt;&nbsp;3dAutomask&nbsp;-prefix&nbsp;$mask&nbsp;-dilate&nbsp;1&nbsp;$img<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3dcalc&nbsp;-a&nbsp;$mask&nbsp;-b&nbsp;$img&nbsp;-expr&nbsp;'a*b'<br>
+smoothing_scaling&nbsp;--&gt;&nbsp;fslmaths&nbsp;-kernel&nbsp;gauss&nbsp;${sigma}&nbsp;-fmean&nbsp;-mas&nbsp;$mask<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fslmaths&nbsp;-ing&nbsp;10000&nbsp;-odt&nbsp;float&nbsp;...<br>
+masking&nbsp;--&gt;&nbsp;fslmaths&nbsp;-Tmin&nbsp;-bin&nbsp;...&nbsp;-odt&nbsp;char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;--see&nbsp;note&nbsp;2.<br>
+&nbsp;<br>
+&nbsp;<br>
+It's&nbsp;possible&nbsp;to&nbsp;use&nbsp;functions&nbsp;in&nbsp;this&nbsp;file&nbsp;without&nbsp;installing&nbsp;all&nbsp;dependencies.&nbsp;<br>
+An&nbsp;warning&nbsp;will&nbsp;appear&nbsp;if&nbsp;a&nbsp;package&nbsp;is&nbsp;not&nbsp;installed,&nbsp;but&nbsp;there&nbsp;won't&nbsp;be&nbsp;any<br>
+error&nbsp;in&nbsp;importing&nbsp;and&nbsp;using&nbsp;functions&nbsp;that&nbsp;does&nbsp;not&nbsp;depend&nbsp;on&nbsp;such&nbsp;package.&nbsp;<br>
+&nbsp;<br>
+Notes:<br>
+1.&nbsp;<a href="#-motion_correction">motion_correction</a>(...)&nbsp;is&nbsp;a&nbsp;wrapper&nbsp;that&nbsp;will&nbsp;subsequently&nbsp;call&nbsp;either&nbsp;<br>
+&nbsp;&nbsp;&nbsp;<a href="#-motion_correction_nipy">motion_correction_nipy</a>(...)&nbsp;or&nbsp;<a href="#-motion_correction_pypreprocess">motion_correction_pypreprocess</a>(...)&nbsp;depending<br>
+&nbsp;&nbsp;&nbsp;on&nbsp;the&nbsp;parameter&nbsp;'mc_alg'.<br>
+2.&nbsp;As&nbsp;noted&nbsp;in&nbsp;the&nbsp;docstring&nbsp;of&nbsp;<a href="#-filtering">filtering</a>(...),&nbsp;this&nbsp;function&nbsp;has&nbsp;different<br>
+&nbsp;&nbsp;&nbsp;behavior&nbsp;than&nbsp;fcon_1000's.</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="nibabel.html">nibabel</a><br>
+</td><td width="25%" valign=top><a href="warnings.html">warnings</a><br>
+</td><td width="25%" valign=top></td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-filtering"><strong>filtering</strong></a>(in_file, out_file, detrend<font color="#909090">=False</font>, high_pass<font color="#909090">=None</font>, low_pass<font color="#909090">=None</font>, extra_params<font color="#909090">={}</font>, **kwargs)</dt><dd><tt>Automatically&nbsp;filter&nbsp;and&nbsp;detrend&nbsp;the&nbsp;data.<br>
+&nbsp;<br>
+Now,&nbsp;C-PAC&nbsp;has&nbsp;decided&nbsp;not&nbsp;to&nbsp;implement&nbsp;any&nbsp;of&nbsp;these&nbsp;features,&nbsp;and&nbsp;what<br>
+fcon_1000&nbsp;does&nbsp;is&nbsp;not&nbsp;traditional&nbsp;filtering&nbsp;(the&nbsp;DC&nbsp;values&nbsp;are&nbsp;always&nbsp;added<br>
+back&nbsp;after&nbsp;high-pass&nbsp;filtering&nbsp;and&nbsp;detrending),&nbsp;making&nbsp;this&nbsp;function&nbsp;less<br>
+crucial.&nbsp;Moreover,&nbsp;nilearn&nbsp;has&nbsp;its&nbsp;own&nbsp;issues,&nbsp;as&nbsp;seen&nbsp;here:&nbsp;https://github.com/nilearn/nilearn/issues/374#ref-issue-59767433,<br>
+which&nbsp;means&nbsp;the&nbsp;result&nbsp;of&nbsp;this&nbsp;function&nbsp;can&nbsp;be&nbsp;fundamentally&nbsp;different&nbsp;from<br>
+fcon_1000's,&nbsp;and&nbsp;the&nbsp;filter&nbsp;quality&nbsp;is&nbsp;inconsistent.&nbsp;As&nbsp;a&nbsp;result,&nbsp;one&nbsp;should<br>
+always&nbsp;check&nbsp;the&nbsp;results&nbsp;before&nbsp;using&nbsp;them,&nbsp;or&nbsp;apply&nbsp;filters&nbsp;carefully&nbsp;and<br>
+specially&nbsp;designed&nbsp;using&nbsp;other&nbsp;softwares.&nbsp;<br>
+&nbsp;<br>
+Inputs:&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;input&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;where&nbsp;the&nbsp;temporally&nbsp;processed&nbsp;file&nbsp;will&nbsp;be&nbsp;saved<br>
+&nbsp;&nbsp;&nbsp;&nbsp;detrend:&nbsp;bool.&nbsp;whether&nbsp;to&nbsp;detrend&nbsp;the&nbsp;data<br>
+&nbsp;&nbsp;&nbsp;&nbsp;high_pass:&nbsp;float&nbsp;or&nbsp;None.&nbsp;in&nbsp;Hz<br>
+&nbsp;&nbsp;&nbsp;&nbsp;low_pass:&nbsp;float&nbsp;or&nbsp;None.&nbsp;in&nbsp;Hz<br>
+&nbsp;&nbsp;&nbsp;&nbsp;extra_params:&nbsp;extra&nbsp;keywords&nbsp;to&nbsp;nilean.image.clean_img<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+Return:&nbsp;the&nbsp;filtered&nbsp;image</tt></dd></dl>
+ <dl><dt><a name="-masking"><strong>masking</strong></a>(in_file, out_file, **kwargs)</dt><dd><tt>Create&nbsp;a&nbsp;binary&nbsp;mask&nbsp;for&nbsp;the&nbsp;4D&nbsp;functional&nbsp;scan,&nbsp;based&nbsp;on&nbsp;the&nbsp;min&nbsp;values<br>
+along&nbsp;t-axis.&nbsp;<br>
+&nbsp;<br>
+Inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;the&nbsp;input&nbsp;file&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;where&nbsp;the&nbsp;binary&nbsp;mask&nbsp;will&nbsp;be&nbsp;saved<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+Return:&nbsp;out_file</tt></dd></dl>
+ <dl><dt><a name="-motion_correction"><strong>motion_correction</strong></a>(in_file, out_file, mc_alg<font color="#909090">='pypreprocess_realign'</font>, force_mean_reference<font color="#909090">=False</font>, extra_params<font color="#909090">={}</font>, **kwargs)</dt><dd><tt>Motion&nbsp;correction&nbsp;function.&nbsp;Offers&nbsp;3&nbsp;motion&nbsp;correction&nbsp;algorithms&nbsp;from&nbsp;<br>
+2&nbsp;packages:&nbsp;SpaceRealign&nbsp;and&nbsp;SpaceTimeRealign&nbsp;from&nbsp;NiPy,&nbsp;realign&nbsp;from<br>
+pypreprocess.&nbsp;All&nbsp;three&nbsp;algorithms&nbsp;are&nbsp;purely&nbsp;Python.&nbsp;<br>
+&nbsp;<br>
+inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;input&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;where&nbsp;the&nbsp;motion&nbsp;corrected&nbsp;file&nbsp;will&nbsp;be&nbsp;saved<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mc_alg:&nbsp;keyword&nbsp;for&nbsp;algorithm&nbsp;choice.&nbsp;Options:&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['nipy_spacerealign',&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'nipy_spacetimerealign',&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'pypreprocess_realign']<br>
+&nbsp;&nbsp;&nbsp;&nbsp;force_mean_reference:&nbsp;whether&nbsp;the&nbsp;motion&nbsp;correction&nbsp;should&nbsp;be&nbsp;aligned<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with&nbsp;the&nbsp;first&nbsp;volume&nbsp;or&nbsp;the&nbsp;mean&nbsp;of&nbsp;all&nbsp;volumes.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;extra_params:&nbsp;extra&nbsp;kwargs&nbsp;to&nbsp;pass&nbsp;to&nbsp;motion&nbsp;correction&nbsp;algorithms<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+return:&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;motion&nbsp;corrected&nbsp;fMRI&nbsp;scan.</tt></dd></dl>
+ <dl><dt><a name="-motion_correction_nipy"><strong>motion_correction_nipy</strong></a>(in_file, out_file, mc_alg, extra_params<font color="#909090">={}</font>)</dt><dd><tt>an&nbsp;attempt&nbsp;at&nbsp;motion&nbsp;correction&nbsp;using&nbsp;NiPy&nbsp;package.&nbsp;<br>
+&nbsp;<br>
+inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;Full&nbsp;path&nbsp;to&nbsp;the&nbsp;resting-state&nbsp;scan.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;Full&nbsp;path&nbsp;to&nbsp;the&nbsp;(to&nbsp;be)&nbsp;output&nbsp;file.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mc_alg:&nbsp;can&nbsp;be&nbsp;either&nbsp;'nipy_spacerealign'&nbsp;or&nbsp;'nipy_spacetimerealign'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;extra_params:&nbsp;extra&nbsp;parameters&nbsp;to&nbsp;SpaceRealign,&nbsp;SpaceTimeRealign,&nbsp;estimate<br>
+return:&nbsp;the&nbsp;motion&nbsp;corrected&nbsp;image</tt></dd></dl>
+ <dl><dt><a name="-motion_correction_pypreprocess"><strong>motion_correction_pypreprocess</strong></a>(in_file, out_file, force_mean_reference, extra_params<font color="#909090">={}</font>)</dt><dd><tt>an&nbsp;attempt&nbsp;at&nbsp;motion&nbsp;correction&nbsp;using&nbsp;pypreprocess&nbsp;package.&nbsp;<br>
+&nbsp;<br>
+inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;the&nbsp;input&nbsp;file,&nbsp;which&nbsp;is&nbsp;a&nbsp;resting&nbsp;state&nbsp;fMRI&nbsp;image.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;the&nbsp;future&nbsp;output&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;force_mean_reference:&nbsp;if&nbsp;evaluated&nbsp;True,&nbsp;adjust&nbsp;motion&nbsp;according&nbsp;to&nbsp;the&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mean&nbsp;image;&nbsp;otherwise&nbsp;adjust&nbsp;to&nbsp;the&nbsp;first&nbsp;volume.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;extra_params:&nbsp;extra&nbsp;parameters&nbsp;to&nbsp;MRIMotionCorrection<br>
+return:&nbsp;the&nbsp;motion&nbsp;corrected&nbsp;image</tt></dd></dl>
+ <dl><dt><a name="-skullstrip4d"><strong>skullstrip4d</strong></a>(in_file, out_file, mask_out_file<font color="#909090">=''</font>, extra_params<font color="#909090">={}</font>, **kwargs)</dt><dd><tt>Create&nbsp;a&nbsp;3D&nbsp;mask&nbsp;using&nbsp;nilearn&nbsp;masking&nbsp;utilities;&nbsp;apply&nbsp;the&nbsp;mask&nbsp;to&nbsp;motion<br>
+corrected&nbsp;4D&nbsp;functional&nbsp;images&nbsp;using&nbsp;numpy.&nbsp;Can&nbsp;pass&nbsp;extra&nbsp;parameters&nbsp;to<br>
+nilearn.masking.compute_epi_mask&nbsp;by&nbsp;customizing&nbsp;compute_epi_mask_kwargs.&nbsp;<br>
+&nbsp;<br>
+inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;input&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;where&nbsp;the&nbsp;skull&nbsp;stripped&nbsp;file&nbsp;will&nbsp;be&nbsp;saved<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mask_out_file:&nbsp;path&nbsp;to&nbsp;where&nbsp;the&nbsp;mask&nbsp;will&nbsp;be&nbsp;saved<br>
+&nbsp;&nbsp;&nbsp;&nbsp;extra_params:&nbsp;extra&nbsp;keyword&nbsp;arguments&nbsp;passed&nbsp;to&nbsp;nilearn.masking.compute_epi_mask.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+return:&nbsp;the&nbsp;skull&nbsp;stripped&nbsp;image&nbsp;and&nbsp;its&nbsp;mask&nbsp;(in&nbsp;a&nbsp;tuple&nbsp;of&nbsp;two)</tt></dd></dl>
+ <dl><dt><a name="-smoothing_scaling"><strong>smoothing_scaling</strong></a>(in_file, out_file, smooth<font color="#909090">=None</font>, normalize<font color="#909090">=10000</font>, **kwargs)</dt><dd><tt>Has&nbsp;the&nbsp;ability&nbsp;to&nbsp;smooth&nbsp;and&nbsp;normalize&nbsp;the&nbsp;data.&nbsp;<br>
+&nbsp;<br>
+For&nbsp;reference&nbsp;(and&nbsp;for&nbsp;what's&nbsp;it&nbsp;worth),&nbsp;after&nbsp;skull&nbsp;stripping,&nbsp;C-PAC<br>
+normalizes&nbsp;image&nbsp;intensity&nbsp;values&nbsp;then&nbsp;goes&nbsp;straight&nbsp;ahead&nbsp;to&nbsp;create&nbsp;a&nbsp;mask;&nbsp;<br>
+meanwhile&nbsp;fcon_1000's&nbsp;pipeline&nbsp;does&nbsp;spatial&nbsp;smoothing&nbsp;(with&nbsp;FWHM=6),&nbsp;<br>
+grand&nbsp;mean&nbsp;scaling&nbsp;(which&nbsp;is&nbsp;the&nbsp;same&nbsp;as&nbsp;normalization&nbsp;in&nbsp;C-PAC),&nbsp;temporal<br>
+filtering&nbsp;and&nbsp;detrending&nbsp;before&nbsp;masking.&nbsp;While&nbsp;smoothing&nbsp;and&nbsp;grand&nbsp;mean&nbsp;<br>
+scaling&nbsp;are&nbsp;achievable,&nbsp;FSL's&nbsp;filtering&nbsp;and&nbsp;detrending&nbsp;functions&nbsp;are<br>
+different&nbsp;from&nbsp;the&nbsp;available&nbsp;nilearn&nbsp;functions.&nbsp;@See&nbsp;filtering<br>
+&nbsp;<br>
+By&nbsp;default&nbsp;we&nbsp;choose&nbsp;the&nbsp;C-PAC&nbsp;setting:&nbsp;smooth=None,&nbsp;normalize=10000<br>
+since&nbsp;it's&nbsp;newer&nbsp;and&nbsp;doesn't&nbsp;require&nbsp;smoothing&nbsp;or&nbsp;filtering.&nbsp;a&nbsp;fcon_1000's<br>
+setting&nbsp;on&nbsp;the&nbsp;other&nbsp;hand&nbsp;will&nbsp;look&nbsp;like&nbsp;this:&nbsp;smooth=6,&nbsp;normalize=10000<br>
+but&nbsp;to&nbsp;really&nbsp;reproduce&nbsp;their&nbsp;pipeline&nbsp;one&nbsp;have&nbsp;to&nbsp;deal&nbsp;with&nbsp;filters&nbsp;later.&nbsp;<br>
+&nbsp;<br>
+Inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;input&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;where&nbsp;the&nbsp;spatially&nbsp;processed&nbsp;file&nbsp;will&nbsp;be&nbsp;saved<br>
+&nbsp;&nbsp;&nbsp;&nbsp;smooth:&nbsp;nilearn.smooth_img's&nbsp;smooth&nbsp;parameter&nbsp;fwhm.&nbsp;Can&nbsp;be&nbsp;scalar,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;numpy.ndarray,&nbsp;'fast'&nbsp;or&nbsp;None<br>
+&nbsp;&nbsp;&nbsp;&nbsp;normalize:&nbsp;a&nbsp;number&nbsp;to&nbsp;multiply&nbsp;after&nbsp;dividing&nbsp;the&nbsp;4D&nbsp;global&nbsp;mean.&nbsp;<br>
+&nbsp;<br>
+Return:&nbsp;a&nbsp;smoothed&nbsp;and/or&nbsp;grandmean&nbsp;scaled&nbsp;image</tt></dd></dl>
+ <dl><dt><a name="-take_slice"><strong>take_slice</strong></a>(in_file, out_file, slice_index<font color="#909090">=7</font>, **kwargs)</dt><dd><tt>save&nbsp;a&nbsp;3D&nbsp;image&nbsp;slice&nbsp;of&nbsp;a&nbsp;4D&nbsp;functional&nbsp;image.&nbsp;for&nbsp;registration.&nbsp;<br>
+&nbsp;<br>
+inputs:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;in_file:&nbsp;path&nbsp;to&nbsp;input&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;out_file:&nbsp;path&nbsp;to&nbsp;output&nbsp;file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;slice_index:&nbsp;save&nbsp;image_data[...,slice_index],&nbsp;or&nbsp;t&nbsp;=&nbsp;slice_index<br>
+&nbsp;<br>
+return:&nbsp;a&nbsp;3D&nbsp;image</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>USE_CACHE</strong> = True</td></tr></table>
+</body></html>
