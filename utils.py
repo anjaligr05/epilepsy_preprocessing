@@ -34,9 +34,7 @@ def build_output_path(name_in, name_out, folder, name_ext='out', name_conv='repl
 
 def build_image_path(filename, filedir, fileext = '.nii.gz', check_exist=False):
     
-    if filedir and filedir[-1] != '/':
-        filedir = filedir + '/'
-    path = filedir + filename + fileext
+    path = os.path.join(filedir, filename + fileext)
     if not check_exist or os.path.isfile(path):
         return path
     else:
@@ -60,13 +58,14 @@ class AllFeatures:
     def run(self, *args, **kwargs):
         if not self.param:
             print 'no extra parameter selected for %s' % self.func_name
-            param = kwargs
         else:
             print 'extra parameter selected for %s' % self.func_name
-            param = self.param
+        _kwargs = dict(kwargs)
+        for key in self.param: # update param
+            _kwargs[key] = self.param[key]
         print 'run: %s(%s **%s)'%(
-        self.func_name, self._trimstr(str(args)[1:-1]), self._trimstr(param))
-        return self.func(*args, **kwargs)
+        self.func_name, self._trimstr(str(args)[1:-1]), self._trimstr(_kwargs))
+        return self.func(*args, **_kwargs)
     
     def _trimstr(self, obj):
         obj_str = str(obj)

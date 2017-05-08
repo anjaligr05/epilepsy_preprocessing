@@ -41,7 +41,7 @@ Notes:
 import warnings
 
 # customs
-from utils import build_input_path, AllFeatures, build_output_path
+from utils import AllFeatures
 
 # I/O, nilearn, pypreprocess and nipy all depend on nibabel
 import nibabel as nib
@@ -71,7 +71,7 @@ except ImportError:
 
 # nilearn modules
 try:
-    from nilearn.image import mean_img, smooth_img, clean_img, math_img
+    from nilearn.image import mean_img, smooth_img, clean_img, math_img, index_img
     from nilearn.masking import compute_epi_mask
     from nilearn.plotting import plot_roi
 except ImportError:
@@ -93,8 +93,9 @@ def take_slice(in_file, out_file, slice_index = 7, **kwargs):
     
     return: a 3D image
     """
-    func = nib.load(in_file)
-    func = math_img('img[...,slice_index]', img=func)
+#    func = nib.load(in_file)
+#    func = math_img('img[...,slice_index]', img=func)
+    func = index_img(in_file, slice_index)
     nib.save(func, out_file)
     return func
 
@@ -131,7 +132,8 @@ def skullstrip4d(in_file, out_file, mask_out_file='', extra_params={}, **kwargs)
     
     func = math_img('a[...,np.newaxis]*b', a = mask, b = func) # numpy broadcast
     
-    nib.save(mask, mask_out_file)
+    if mask_out_file:
+        nib.save(mask, mask_out_file)
     nib.save(func, out_file) 
     print 'mask and the skull stripped images are save to %s and %s, respectively. ' % (out_file, mask_out_file)
     
