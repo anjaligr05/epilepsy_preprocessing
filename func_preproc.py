@@ -39,6 +39,7 @@ Notes:
 
 # Python built-ins
 import warnings
+import os
 
 # customs
 from utils import AllFeatures
@@ -65,6 +66,7 @@ try:
     from nipy import load_image, save_image
     from nipy.algorithms.registration import SpaceTimeRealign
     from nipy.algorithms.registration.groupwise_registration import SpaceRealign
+    from nipy.io.nifti_ref import nifti2nipy, nipy2nifti
 #    from nipy.core.api import Image
 except ImportError:
     warnings.warn("nipy modules are not available. 'nipy_spacetimerealign' and 'nipy_spacerealign' options of motion_correction can't be used. ")
@@ -82,13 +84,13 @@ except ImportError:
 # functions for each individual steps #
 #######################################
 
-def take_slice(in_file, out_file, slice_index = 7, **kwargs):
+def take_slice(in_file, out_path = '', slice_index = 7, **kwargs):
     """
     save a 3D image slice of a 4D functional image. for registration. 
     
     inputs:
-        in_file: path to input file
-        out_file: path to output file
+        in_file: path to the input file or input file loaded as an nibabel image. 
+        out_path: path to output file
         slice_index: save image_data[...,slice_index], or t = slice_index
     
     return: a 3D image
@@ -96,72 +98,75 @@ def take_slice(in_file, out_file, slice_index = 7, **kwargs):
 #    func = nib.load(in_file)
 #    func = math_img('img[...,slice_index]', img=func)
     func = index_img(in_file, slice_index)
-    nib.save(func, out_file)
+    if out_path:
+        nib.save(func, out_path)
     return func
 
-def skullstrip4d(in_file, out_file, mask_out_file='', extra_params={}, **kwargs):
+def skullstrip4d(in_file, out_path = '', extra_params={}, **kwargs):
     """
     Create a 3D mask using nilearn masking utilities; apply the mask to motion
     corrected 4D functional images using numpy. Can pass extra parameters to
     nilearn.masking.compute_epi_mask by customizing compute_epi_mask_kwargs. 
+    A mask will be saved to name_out.mask.ext file for out_path = name_out.ext
     
     inputs:
-        in_file: path to input file
-        out_file: path to where the skull stripped file will be saved
-        mask_out_file: path to where the mask will be saved
+        in_file: path to the input file or input file loaded as an nibabel image. 
+        out_path: path to where the skull stripped file will be saved
         extra_params: extra keyword arguments passed to nilearn.masking.compute_epi_mask. 
         
     return: the skull stripped image and its mask (in a tuple of two)
     """
-#    _img_input = type(in_file) in nib.all_image_classes # if input is an image
-#    func = in_file if _img_input else nib.load(in_file)
-    func = nib.load(in_file)
     
-    print 'start skull stripping... input: %s' % in_file    
-    
+    print 'computing mask...'    
     if 'compute_epi_mask' in extra_params:
         print "extra parameters are used for compute_epi_mask: %s" % extra_params['compute_epi_mask']
-        mask = compute_epi_mask(func, **extra_params['compute_epi_mask'])
+        mask = compute_epi_mask(in_file, **extra_params['compute_epi_mask'])
     else:
-        mask = compute_epi_mask(func)
+        mask = compute_epi_mask(in_file)
     
-    print "skull strip complete. check the plot to see if it's good! (if not, adjust parameters using compute_epi_mask_kwargs)"    
+    stripped = math_img('a[...,np.newaxis]*b', a = mask, b = in_file) # numpy broadcast
+    
+    if not out_path:
+        return stripped, mask
+    
+    print "skull strip complete. check the plot to see if it's good!"
+    " (if not, adjust parameters using compute_epi_mask_kwargs)"  
     
     # display mask
-    plot_roi(mask, mean_img(func),title='mask for %s'%str(in_file).split('.')[0])
+    name_out,ext = os.path.splitext(out_path)
+    if ext == '.gz':
+        name_out,ext2 = os.path.splitext(name_out)
+        ext = ext2+ext
+    plot_roi(mask, mean_img(in_file),
+             draw_cross=True,
+             output_file=name_out+'.png',
+             title='mask for %s'%out_path)
+    print 'a visualization of the mask is saved at %s' % (name_out+'.png')
     
-    func = math_img('a[...,np.newaxis]*b', a = mask, b = func) # numpy broadcast
-    
-    if mask_out_file:
-        nib.save(mask, mask_out_file)
-    nib.save(func, out_file) 
-    print 'mask and the skull stripped images are save to %s and %s, respectively. ' % (out_file, mask_out_file)
-    
-    return func, mask
+    nib.save(mask, name_out+'.mask'+ext)
+    nib.save(stripped, out_path) 
+    print 'mask and the skull stripped 4D scan are save to %s and %s, respectively. ' % (out_path, (name_out+'.mask'+ext))
+    return stripped, mask
 
-def masking(in_file, out_file, **kwargs):
+def masking(in_file, out_path = '', **kwargs):
     """
     Create a binary mask for the 4D functional scan, based on the min values
     along t-axis. 
     
     Inputs:
-        in_file: path to the input file 
-        out_file: path to where the binary mask will be saved
+        in_file: path to the input file or input file loaded as an nibabel image. 
+        out_path: path to where the binary mask will be saved
         
-    Return: out_file
+    Return: out_path
     """
-    
-    func = nib.load(in_file)
-    
-    print "start creating a mask for input file: %s" % in_file    
-    mask = math_img('(np.min(img,axis=-1) != 0).astype(int)', img=func)
-    
-    nib.save(mask, out_file)    
-    print "mask saved: %s" % out_file
-    
-    return out_file
+        
+    mask = math_img('(np.min(img,axis=-1) != 0).astype(int)', img=in_file)
+    if out_path:
+        nib.save(mask, out_path)    
+        print "mask saved: %s" % out_path
+    return mask
 
-def smoothing_scaling(in_file, out_file, smooth = None, normalize = 10000,
+def smoothing_scaling(in_file, out_path = '', smooth = None, normalize = 10000,
                       **kwargs):
     """
     Has the ability to smooth and normalize the data. 
@@ -180,46 +185,44 @@ def smoothing_scaling(in_file, out_file, smooth = None, normalize = 10000,
     but to really reproduce their pipeline one have to deal with filters later. 
     
     Inputs:
-        in_file: path to input file
-        out_file: path to where the spatially processed file will be saved
+        in_file: path to the input file or input file loaded as an nibabel image. 
+        out_path: path to where the spatially processed file will be saved
         smooth: nilearn.smooth_img's smooth parameter fwhm. Can be scalar,
                 numpy.ndarray, 'fast' or None
         normalize: a number to multiply after dividing the 4D global mean. 
     
     Return: a smoothed and/or grandmean scaled image
     """
-    
-    func = nib.load(in_file)
 
     # smooth
     if smooth:
-        print "start smoothing the image, input: %s" % in_file
-        
-        mask = math_img('img!=0', img = func) # create a mask to preserve shape. 
-        # using gaussian kernel for smoothing will introduce a fuzzy outline
-        # around the edge and the shape and volume of the brain will be altered,
-        # so we need to remove the extra edge by applying this mask. 
+        print 'apply smoothing with index %f' % smooth
+        mask = math_img('img!=0', img = in_file) # create a mask to preserve 
+        # shape. using gaussian kernel for smoothing will introduce a fuzzy 
+        # outline around the edge and the shape and volume of the brain will be
+        # altered, so we need to remove the extra edge by applying this mask. 
         # this mask should be the same as the one generated in skullstrip4d,
         # so alternatively one can load that file...       
         
-        func = smooth_img(func, smooth)
-        func = math_img('img2.astype(int)*img1', img1 = func, img2 = mask)
+        in_file = smooth_img(in_file, smooth)
+        in_file = math_img('img2.astype(int)*img1', img1 = in_file, img2 = mask)
 
     # normalize
     if normalize:
-        print "start normalizing the image, input: %s" % in_file
+        print "start normalizing the image to grand mean %f" % normalize
         # normalization here means to bring the global (4D) mean to a constant
         # value. only non-zeros values will be accounted when computing the mean. 
         # after all that's where it really matters...
 
-        func = math_img('img*(%f)/np.mean(img[img!=0])'%normalize, img=func)
+        in_file = math_img('img*(%f)/np.mean(img[img!=0])'%normalize, img=in_file)
 #        func = math_img('img1*(%f)/np.mean(img1*img2)'%normalize, img1=func,img2=mask) 
 
-    nib.save(func, out_file)
-    print "grand mean scaled (and/or smoothed) image is saved: %s" % out_file
-    return func
+    if out_path:
+        nib.save(in_file, out_path)
+        print "grand mean scaled (and/or smoothed) image is saved: %s" % out_path
+    return in_file
 
-def filtering(in_file, out_file, detrend = False, 
+def filtering(in_file, out_path = '', detrend = False, 
               high_pass = None, low_pass = None, extra_params={}, **kwargs):
     """
     Automatically filter and detrend the data.
@@ -234,8 +237,8 @@ def filtering(in_file, out_file, detrend = False,
     specially designed using other softwares. 
     
     Inputs: 
-        in_file: path to input file
-        out_file: path to where the temporally processed file will be saved
+        in_file: path to the input file or input file loaded as an nibabel image. 
+        out_path: path to where the temporally processed file will be saved
         detrend: bool. whether to detrend the data
         high_pass: float or None. in Hz
         low_pass: float or None. in Hz
@@ -244,7 +247,6 @@ def filtering(in_file, out_file, detrend = False,
     Return: the filtered image
     """
 
-    func = nib.load(in_file)
     # band-pass filter, detrend
     if high_pass or low_pass or detrend:
         warnings.warn('This function may not do what you think it does. Read the description and view the output data before using them. ')
@@ -253,14 +255,14 @@ def filtering(in_file, out_file, detrend = False,
         hp = high_pass or None
         print "start cleaning. parameters: \n\tdetrend: %s\n\t lp: %s\thp: %s" % dt,lp,hp
         print "Note: extra_params['clean_img'] may change these settings. "
-        func = AllFeatures(clean_img, extra_params).run(
-        func, detrend=dt, low_pass=lp, high_pass=hp, standardize=False, t_r=2)
+        out_file = AllFeatures(clean_img, extra_params).run(
+        in_file, detrend=dt, low_pass=lp, high_pass=hp, standardize=False, t_r=2)
 #        func = clean_img(func, detrend=dt, low_pass=lp, high_pass=hp, standardize=False, t_r=2)
+    if out_path:
+        nib.save(out_file, out_path)
+    return out_file
 
-    nib.save(func, out_file)
-    return func
-
-def motion_correction(in_file, out_file, mc_alg = 'pypreprocess_realign',
+def motion_correction(in_file, out_path = '', mc_alg = 'pypreprocess_realign',
                       force_mean_reference = False, extra_params={}, **kwargs):
     """
     Motion correction function. Offers 3 motion correction algorithms from 
@@ -268,8 +270,8 @@ def motion_correction(in_file, out_file, mc_alg = 'pypreprocess_realign',
     pypreprocess. All three algorithms are purely Python. 
     
     inputs:
-        in_file: path to input file
-        out_file: path to where the motion corrected file will be saved
+        in_file: path to the input file or input file loaded as an nibabel image. 
+        out_path: path to where the motion corrected file will be saved
         mc_alg: keyword for algorithm choice. Options: 
                 ['nipy_spacerealign', 
                  'nipy_spacetimerealign', 
@@ -288,36 +290,31 @@ def motion_correction(in_file, out_file, mc_alg = 'pypreprocess_realign',
     print 'start motion correction process'
     if mc_alg in nipyalgs:
         print "using nipy's algorithm"
-        return motion_correction_nipy(in_file, out_file, mc_alg, extra_params)
+        return motion_correction_nipy(in_file, out_path, mc_alg, extra_params)
     elif mc_alg in pypreprocessalgs:
         print "using pypreprocess' algorithm"
-        return motion_correction_pypreprocess(in_file, out_file,
+        return motion_correction_pypreprocess(in_file, out_path,
                                               force_mean_reference, extra_params)
     
     raise ValueError('option %s is not recognizable. '%mc_alg)
 
-def motion_correction_pypreprocess(in_file, out_file, force_mean_reference,
+def motion_correction_pypreprocess(in_file, out_path, force_mean_reference,
                                    extra_params={}):
     """
     an attempt at motion correction using pypreprocess package. 
     
     inputs:
-        in_file: path to the input file, which is a resting state fMRI image. 
-        out_file: path to the future output file
+        in_file: path to the input file or input file loaded as an nibabel image.  
+        out_path: path to the future output file
         force_mean_reference: if evaluated True, adjust motion according to the 
                         mean image; otherwise adjust to the first volume. 
         extra_params: extra parameters to MRIMotionCorrection
     return: the motion corrected image
     """
-    # load using nibabel
-    func = nib.load(in_file)
-    
+
     if force_mean_reference: # calculate the mean and insert to the front
         print('motion correction referenced to mean!')
-        func = math_img('np.insert(img, 0, np.mean(img, axis=-1), axis=3)', img = func)
-#        func_mean = mean_img(func)
-#        inserted_data = np.insert(func.get_data(), 0, func_mean.get_data(), axis=3)
-#        func = nib.Nifti1Image(inserted_data, func.affine) # update func
+        in_file = math_img('np.insert(img, 0, np.mean(img, axis=-1), axis=3)', img = in_file)
     else:
         print('motion correction referenced to the first slice.')
         
@@ -331,29 +328,27 @@ def motion_correction_pypreprocess(in_file, out_file, force_mean_reference,
     # fit realigner
     if USE_CACHE:
         mem = Memory("func_preproc_cache")
-        mrimc = mem.cache(mrimc.fit)(func)
+        mrimc = mem.cache(mrimc.fit)(in_file)
     else:
-        mrimc = mrimc.fit(func)
-    
-#    if force_mean_reference:
-#        mrimc.vols_[0].pop(0)
+        mrimc = mrimc.fit(in_file)
 
     # write realigned files to disk
     result = mrimc.transform(concat=True)['realigned_images'][0]
     if force_mean_reference: # remove the first frame, which was the mean
         result = math_img('img[...,1:]', img = result)
 
-    nib.save(result, out_file)
+    if out_path:
+        nib.save(result, out_path)
     return result
     
 
-def motion_correction_nipy(in_file, out_file, mc_alg, extra_params={}):
+def motion_correction_nipy(in_file, out_path, mc_alg, extra_params={}):
     """
     an attempt at motion correction using NiPy package. 
     
     inputs:
         in_file: Full path to the resting-state scan. 
-        out_file: Full path to the (to be) output file. 
+        out_path: Full path to the (to be) output file. 
         mc_alg: can be either 'nipy_spacerealign' or 'nipy_spacetimerealign'
         extra_params: extra parameters to SpaceRealign, SpaceTimeRealign, estimate
     return: the motion corrected image
@@ -363,13 +358,16 @@ def motion_correction_nipy(in_file, out_file, mc_alg, extra_params={}):
         (SpaceTimeRealign, {'tr':2, 'slice_times':'asc_alt_2','slice_info':2})}
     # format: {'function_name':(function, kwargs), ...}
 
-    # processing starts here    
-    I = load_image(in_file)
+    # processing starts here
+    if type(in_file) in nib.all_image_classes:
+        I = nifti2nipy(in_file) # assume Nifti1Image
+    else:
+        I = load_image(in_file)
     print 'source image loaded. '
 
     # initialize the registration algorithm
     reg = AllFeatures(alg_dict[mc_alg][0], extra_params).run(I, **alg_dict[mc_alg][1])
-#    reg = alg_dict[mc_alg][0](I, **alg_dict[mc_alg][1]) # SpaceRealign(I, 'tr'=2, ...)
+#    reg = alg_dict[mc_alg][0](I, **alg_dict[mc_alg][1]) # SpaceTimeRealign(I, tr=2, ...)
     print 'motion correction algorithm established. '
     print 'estimating...'
     
@@ -383,7 +381,6 @@ def motion_correction_nipy(in_file, out_file, mc_alg, extra_params={}):
 
     print 'estimation complete. Writing to file...'
     result = reg.resample(0)
-    save_image(result, out_file)
-#    from nipy.io.nifti_ref import nipy2nifti
-#    return nipy2nifti(result)
-    return result
+    if out_path:
+        save_image(result, out_path)
+    return nipy2nifti(result)

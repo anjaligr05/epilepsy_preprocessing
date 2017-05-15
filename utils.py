@@ -60,7 +60,7 @@ class AllFeatures:
             print 'no extra parameter selected for %s' % self.func_name
         else:
             print 'extra parameter selected for %s' % self.func_name
-        _kwargs = dict(kwargs)
+        _kwargs = dict(kwargs) # shallow copy
         for key in self.param: # update param
             _kwargs[key] = self.param[key]
         print 'run: %s(%s **%s)'%(

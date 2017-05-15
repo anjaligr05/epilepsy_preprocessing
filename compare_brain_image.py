@@ -8,9 +8,8 @@ from nipy import load_image
 import re
 import matplotlib.pyplot as plt
 
-arbint = 15
-vminval = -2
-vmaxval = 2
+vminval = -2000
+vmaxval = 2000
 
 class BrainImageComparator:
     
@@ -85,14 +84,8 @@ class BrainImageComparator:
 #'temp/defaced_mprage_brain2.nii.gz')
 #comp.compare(range(0,156,6),save_no_view=True,save_dir='C:/Users/chenym/Downloads/imgtemp/')
 
-standard = load_image('cube/cube.nii.gz')
-twist = load_image('cube/cube_twist.nii.gz')
-mc = load_image('cube/cube_twist_mc.nii.gz')
-mc2 = load_image('cube/cube_twist_mc_2.nii.gz')
-#mc2 = load_image('temp/rest_mc2.nii.gz')
-comp = BrainImageComparator(\
-{'standard':standard[:,:,arbint,:],\
-'twist':twist[:,:,arbint,:],\
-'mc':mc[:,:,arbint,:],\
-'mc2':mc2[:,:,arbint,:]})
-comp.compare(range(0,150,15),save_no_view=True,save_dir='C:/Users/chenym/Downloads/imgtemp/')
+old = load_image('sample/defaced_mprage_brain.nii.gz')
+new = load_image('data/0019001/anat/defaced_mprage_brain_2.nii.gz')
+
+comp = BrainImageComparator({'old':old, 'new':new})
+comp.compare(range(0,120,10),save_no_view=True,save_dir='C:/Users/chenym/Downloads/imgtemp/')

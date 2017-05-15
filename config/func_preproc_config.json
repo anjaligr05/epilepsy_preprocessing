@@ -1,6 +1,21 @@
 {
 	"rest_name": "rest",
 	"func_dir": "func",
-	"force_mean_reference": true,
-	"extra_params": {}
+	"func_to_run": ["motion_correction", "motion_correction", "skullstrip4d", "take_slice", "smoothing_scaling", "masking"],
+	"slice_index": 7,
+	"smooth": null,
+	"normalize": 10000,
+	"detrend": false,
+	"high_pass": null,
+	"low_pass": null,
+	"mc_alg": "nipy_spacetimerealign",
+	"extra_params": {
+		"compute_epi_mask": {
+			"lower_cutoff": 0.19,
+			"upper_cutoff": 0.86
+		},
+		"MRIMotionCorrection": {
+			"verbose": 0
+		}
+	}
 }

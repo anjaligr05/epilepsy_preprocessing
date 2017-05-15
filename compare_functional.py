@@ -12,23 +12,23 @@ import numpy as np
 
 if __name__ == '__main__': # main
 
-    original = load_image('cube/cube.nii.gz').get_data()
-    raw = load_image('cube/cube_twist.nii.gz').get_data()
-    afni = load_image('cube/cube_twist_mc.nii.gz').get_data()
-    sr = load_image('cube/cube_twist_mc_2.nii.gz').get_data()
-    sr2 = load_image('cube/cube_twist_mc_3.nii.gz').get_data()
-    st_r = load_image('cube/cube_twist_mc_4.nii.gz').get_data()[:,:,:,1:]
-    print st_r.shape
-    
-    groups = {'raw':raw, 'SpaceTimeRealign':st_r, 'afni':afni}
-    control = original
-    control_name = 'original_cube'
-    dim_x, dim_y, dim_z, dim_t = raw.shape
+    rest = load_image('func/rest.nii.gz').get_data()
+    afni = load_image('sample/rest_mc.nii.gz').get_data()
+    pypr = load_image('func/rest_mc.nii.gz').get_data()
+    nipy = load_image('func/rest_mc_2.nii.gz').get_data()
+
+#    groups = {'raw':raw, 'sr':sr, 'pyp':pyp}
+#    control = original
+#    control_name = 'original_cube'
+    groups = {'nipy':nipy, 'pypr':pypr, 'afni':afni}
+    control = rest
+    control_name = 'rest'
+    dim_x, dim_y, dim_z, dim_t = control.shape
 
     while True:
         inp = raw_input('put in three seperated integers (e.g., 2,40,25) '+\
         'as coordinates; "s" for summary; "q" to exit. '+\
-        'Dimension: %s\n' % str(raw.shape[0:-1]))
+        'Dimension: %s\n' % str(control.shape[0:-1]))
         if inp == 'q':
             break
         if inp == 's':
@@ -41,6 +41,7 @@ if __name__ == '__main__': # main
                 stat = np.sum(np.abs(tbc-ori),axis=(0,1,2))/\
                 np.sum(ori,axis=(0,1,2))
                 avg = np.sum(np.abs(tbc-ori))/np.sum(ori)
+                print 'average error for %s is %f' % (comp_name, avg)
                 avg = avg*np.ones_like(t)
                 # plots
                 plt.plot(t,stat,label='errors for '+comp_name)

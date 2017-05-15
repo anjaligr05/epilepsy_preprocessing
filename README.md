@@ -52,7 +52,7 @@ python pipeline_pure_python.py data_folder
 to run with default file locations and settings. To use a more advanced
 setting, one can add optional arguments `-sl --subject_list` to point
 to the *"file listing all subjects"* (default *subject_list.txt*),
-and `ac --anat_preproc_config`, `fc --func_preproc_config` and
+and `-ac --anat_preproc_config`, `-fc --func_preproc_config` and
 `-rc --registration_config` to
 provide path to configuration files written as JSON objects. The main
 function will read these configurations and pass the paramters to

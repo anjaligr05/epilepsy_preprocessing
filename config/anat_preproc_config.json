@@ -1,0 +1,8 @@
+{
+	"anat_skullstripped": "defaced_mprage.bse",
+	"anat_mask": "defaced_mprage.mask",
+	"anat_postpreprocess": "defaced_mprage_brain",
+	"anat_postpreprocess_mask": "defaced_mprage_surf",
+	"anat_dir": "anat",
+	"flip_x": false
+}

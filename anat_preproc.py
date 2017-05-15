@@ -15,8 +15,8 @@ from nilearn.image import math_img
 from shutil import copyfile
 from utils import build_image_path
 
-def post_skullstrip(anat_skullstripped, anat_postprocess, 
-                    anat_mask = '', anat_postprocess_mask = 'mprage_surf',
+def post_skullstrip(anat_skullstripped, anat_postpreprocess, 
+                    anat_mask = '', anat_postpreprocess_mask = 'mprage_surf',
                     anat_dir='anat/', flip_x=True): 
     """
     Here we assume the input file is skull stripped already, and therefore
@@ -31,9 +31,9 @@ def post_skullstrip(anat_skullstripped, anat_postprocess,
         anat_dir: current working directory
     """ 
     if anat_mask:
-        _post_skullstrip(anat_mask, anat_postprocess_mask, anat_dir, flip_x)
+        _post_skullstrip(anat_mask, anat_postpreprocess_mask, anat_dir, flip_x)
     
-    return _post_skullstrip(anat_skullstripped, anat_postprocess, anat_dir, flip_x)
+    return _post_skullstrip(anat_skullstripped, anat_postpreprocess, anat_dir, flip_x)
 
 def _post_skullstrip(anat_skullstripped, anat_postprocess, anat_dir, flip_x): 
     """

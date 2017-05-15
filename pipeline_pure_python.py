@@ -24,13 +24,13 @@ the motion correction will be referenced to the mean, as indicated by
 force_mean_reference = True; the skull stripping will include more "brain", as
 indicated by compute_epi_mask's extra parameters, and the final skull stripped
 image will be saved to <func/rest_ss_2.nii.gz> instead of the default
-<func/rest_ss_.nii.gz>. 
+<func/rest_ss.nii.gz>. 
 
 
 run_registration for registrating functional image to mni standard space. It 
 first registers functional image to anatomical image, then registers anatomical
 image to mni image. Finally, it registers the functional image to mni image by
-concatinating the affine transformation obtained in the first two steps and
+concatinating the affine transformations obtained in the first two steps and
 applying directly to the functional image. 
 
 Usage:
@@ -43,13 +43,16 @@ Finally, the main function will run these two runners. It can be run in a
 command line prompt too. 
 
 Usage:
- 
+usage: pipeline_pure_python.py [-h] [-sl [SUBJECT_LIST]]
+                               [-ac [ANAT_PREPROC_CONFIG]]
+                               [-fc [FUNC_PREPROC_CONFIG]]
+                               [-rc [REGISTRATION_CONFIG]]
+                               main_dir
 """
 import anat_preproc
 import func_preproc
 import registration
 from registration import build_reg_output_path
-import re
 import os
 from utils import build_input_path, build_output_path, build_image_path
 import argparse
@@ -57,7 +60,20 @@ import json
 import shutil
 
 def run_func_preproc(rest_name, func_dir, naming={}, func_to_run='default',
-                     extra_params={}, example_path_list=[], **kwargs):
+                     extra_params={}, **kwargs):
+    """
+    functional preprocessing workflow. will run functional preprocessing
+    functions in series and save the intermediate outputs. 
+    
+    inputs:
+        rest_name: the initial, original functional scan. name without extension. 
+        func_dir: the working directory for functional preprocessing. 
+        naming: the naming convention of the output files.
+        func_to_run: a list of function names, or a single string "default".
+            if it's "default", func_to_run = ['motion_correction', 
+            'skullstrip4d', 'take_slice', 'smoothing_scaling', 'masking']
+        extra_params: extra parameters to pass to functions. 
+    """
     # all functions
     func_dict = {'motion_correction':func_preproc.motion_correction,
                  'skullstrip4d'     :func_preproc.skullstrip4d,
@@ -68,12 +84,13 @@ def run_func_preproc(rest_name, func_dir, naming={}, func_to_run='default',
     # defaults
     if func_to_run == 'default':
         func_to_run = ['motion_correction', 'skullstrip4d', 'take_slice', 'smoothing_scaling', 'masking']
-    naming_to_use = \
-    {'name_conv'  : 'replace',
-     'extra_name' : {'skullstrip4d':['mask']}, 
+    if type(func_to_run) is not list:
+        raise TypeError('func_to_run should be either "default" or a list (of strings). ')
+    
+    name_to_use = \
+    {'naming_style'  : 'replace',
      'motion_correction_name_out':'', 'motion_correction_name_postfix':'mc',
      'skullstrip4d_name_out'     :'', 'skullstrip4d_name_postfix'     :'ss',
-     'skullstrip4d_mask_name_out':'', 'skullstrip4d_mask_name_postfix':'mask',
      'take_slice_name_out'       :'', 'take_slice_name_postfix'       :'example_func',
      'smoothing_scaling_name_out':'', 'smoothing_scaling_name_postfix':'gms',
      'filtering_name_out'        :'', 'filtering_name_postfix'        :'pp',
@@ -81,10 +98,10 @@ def run_func_preproc(rest_name, func_dir, naming={}, func_to_run='default',
     }
     # update naming
     for key in naming.keys():
-        naming_to_use[key] = naming[key]
+        name_to_use[key] = naming[key]
     
     name_in = rest_name
-    name_conv = naming_to_use['name_conv']
+    naming_style = name_to_use['naming_style']
     input_list = []
     output_list = []
     return_dict = {}
@@ -94,27 +111,18 @@ def run_func_preproc(rest_name, func_dir, naming={}, func_to_run='default',
     print("function to run: %s" % func_to_run)
     for func_name in func_to_run:
         # load output name
-        name_out = naming_to_use[func_name+'_name_out']
-        name_postfix = naming_to_use[func_name+'_name_postfix']
+        name_out = name_to_use[func_name+'_name_out']
+        name_postfix = name_to_use[func_name+'_name_postfix']
         # build path
-        in_file = build_input_path(name_in, func_dir)
-        name_out, out_file = build_output_path(name_in, name_out, func_dir, name_postfix, name_conv)
-        # load extra path
-        kwargs_copy = dict(kwargs) # shallow copy
-        if func_name in naming_to_use['extra_name']:
-            for extrakey in list(naming_to_use['extra_name'][func_name]):
-                extrakey = re.sub('\A\_+|\_+\Z','',extrakey)
-                _, extraout_file    = build_output_path(name_in,naming_to_use[
-                   func_name+'_'+extrakey+'_name_out'],func_dir,naming_to_use[
-                   func_name+'_'+extrakey+'_name_postfix'],name_conv)
-                kwargs_copy[extrakey+'_'+'out_file'] = extraout_file
-        input_list.append(name_in)
+        in_path = build_input_path(name_in, func_dir)
+        name_out, out_path = build_output_path(name_in, name_out, func_dir, name_postfix, naming_style)
         
+        input_list.append(name_in)        
         # run
-        func_dict[func_name](in_file, out_file, extra_params=extra_params, **kwargs_copy)
-        output_list.append(name_out)        
+        func_dict[func_name](in_path, out_path, extra_params=extra_params, **kwargs)
+        output_list.append(name_out)
+        return_dict[func_name] = out_path
         name_in = name_out
-        return_dict[func_name] = out_file
     
     print("functional preprocessing done. input output flow: ")
     print("function: %s\ninput: %s\noutput: %s"%(func_to_run,input_list,output_list)) 
@@ -190,12 +198,14 @@ def main(args):
         return os.path.join(args.main_dir, *otherstrings)
     
     # read configs and override defaults
-    anat_preproc_detail_config = {"anat_skullstripped":"defaced_mprage.bse",
+    anat_preproc_detail_config = {"anat_dir":"anat",
+                                  "anat_skullstripped":"defaced_mprage.bse",
                                 	"anat_postprocess": "defaced_mprage_brain"}
     func_preproc_detail_config = {'rest_name':'rest', 'func_dir':'func'}
     registration_detail_config = {'anat_name':'highres',
                                   'func_name':'example_func',
                                   'mni_name' :'standard',
+                                  'template':'templates/standard.nii.gz',
                                   'reg_dir':'reg'}
     if args.func_preproc_config is not None:
         with open(args.func_preproc_config, 'r') as f:
@@ -214,19 +224,20 @@ def main(args):
     for subject in subject_list:
         print 'running preprocessing pipeline for %s' % subject
         
-        # post process anatomical skull stripped scan
-        _kwanat = dict(anat_preproc_detail_config)
+        # post-anatomical preprocessing
+        _kwanat = dict(anat_preproc_detail_config) # shallow copy
         _kwanat['anat_dir'] = _concate_main_dir(subject, _kwanat['anat_dir'])
-        highres = anat_preproc.post_skullstrip(**_kwanat)        
+        highres = anat_preproc.post_skullstrip(**_kwanat) # for registration
         
         # run functional preprocessing
         _kwfunc = dict(func_preproc_detail_config) # shallow copy
         _kwfunc['func_dir'] = _concate_main_dir(subject, _kwfunc['func_dir'])
         example_func_path = run_func_preproc(**_kwfunc)['take_slice']
+        # run all func_preproc functions and store example_func for registration
         
         _kwreg = dict(registration_detail_config) # shallow copy
         _kwreg['reg_dir'] = _concate_main_dir(subject, _kwreg['reg_dir'])
-        # create reg/; move files to reg/
+        # create reg_dir; move files to reg_dir
         try:
             print "creating registration directory"
             os.mkdir(_kwreg['reg_dir'])
